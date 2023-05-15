@@ -12,7 +12,7 @@ FONT_SIZE = 100
 STROKE_WIDTH = 20
 STOKE_COLOR = (0, 0, 0)
 
-BACKGROUND_INTERVAL = 5
+background_interval = 5
 
 # get a font
 FONT = ImageFont.truetype(f"fonts/{FONT}", FONT_SIZE)
@@ -26,7 +26,14 @@ os.mkdir("temp/")
 # Load Excel file
 data = pd.read_excel('quotes.xlsx')
 
+# get the sources
 sources_list = os.listdir("videos//")
+
+background_interval = (
+    round(len(data) / len(sources_list))
+)
+
+# print(background_interval)
 
 def drawText(input_text):
 
@@ -54,7 +61,7 @@ def drawText(input_text):
     # out = Image.alpha_composite(background, txt)
     return out
 
-def cutVideo(input_file, output_file, width, height, duration):
+def cutVideo(input_file, output_file, width, height, start_second, end_second):
     video_start_time = 2
     probe = ffmpeg.probe(input_file)
     video_info = next(s for s in probe['streams'] if s['codec_type'] == 'video')
@@ -66,13 +73,15 @@ def cutVideo(input_file, output_file, width, height, duration):
     crop_x = int(center_x - s_width / 2)
     crop_y = int(center_y - s_height / 2)
 
+    print(f"Duration: {end_second - start_second}")
     # pad_width = max(width, s_width)
     # pad_height = max(height, s_height)
 
     out = (
         ffmpeg
         .input(input_file)
-        .trim(start=2,end=(video_start_time+duration))
+        .trim(start=start_second,end=end_second)
+        .setpts('PTS-STARTPTS')
         .filter('crop', 'ih*9/16', 'ih') # crop to 9:16 aspect ratio
         .filter("scale", f"{width}", f"{height}")
     )
@@ -88,7 +97,7 @@ def cutVideo(input_file, output_file, width, height, duration):
         # .filter("pad", pad_width, pad_height, "(ow-iw)/2", "(oh-ih)/2")
         .filter("pad", f"{width}", f"{height}", "(ow-iw)/2", "(oh-ih)/2")
         .filter('fps', fps=30, round='up')
-        .output(output_file, pix_fmt="yuv420p", vcodec="libx265", movflags="faststart")
+        .output(output_file, pix_fmt="yuv420p", vcodec="libx265", movflags="faststart", loglevel="quiet")
         .run()
     ) 
 
@@ -107,10 +116,18 @@ def convertToVideo(input, output, duration):
 
 
 # Iterate over rows
-for index, row in data.head(20).iterrows():
-    # Access data in the row
+# for index, row in data.head(len(data)).iterrows():
+for index, row in data.head(2).iterrows():
     TEXT_1 = row['first_part']
     TEXT_2 = row['second_part']
+
+    # Access data in the row
+    if (index % background_interval) == 0:
+        background = sources_list.pop(0)
+
+    # for i in range(len(sources_list)):
+    print(index, background, TEXT_1)
+    # print(index % background_interval)
 
     temp_folder = "temp/"
     output_temp = f"temp/{TEXT_1}"
@@ -120,20 +137,24 @@ for index, row in data.head(20).iterrows():
     # os.mkdir(output_folder)
     os.mkdir(output_temp)
 
-    if (index % BACKGROUND_INTERVAL) == 0:
-        background = sources_list.pop(0)
 
-    # for i in range(len(sources_list)):
-    print(index, background)
-    # print(index % BACKGROUND_INTERVAL)
+    cutVideo(f"videos/{background}", f"{output_temp}/backgound_1.mp4", SIZE[0], SIZE[1], 1, 9)
+    cutVideo(f"videos/{background}", f"{output_temp}/backgound_blank.mp4", SIZE[0], SIZE[1], 9, 10)
+    cutVideo(f"videos/{background}", f"{output_temp}/backgound_2.mp4", SIZE[0], SIZE[1], 10, 13)
 
-    continue
-
-    cutVideo("videos/source.mp4", "out/dest.mp4", SIZE[0], SIZE[1], 8)
-
+    output_final = (
+        ffmpeg.concat(
+            ffmpeg.input(f"{output_temp}/backgound_1.mp4"),
+            ffmpeg.input(f"{output_temp}/backgound_blank.mp4"),
+            ffmpeg.input(f"{output_temp}/backgound_2.mp4")
+        )
+        .output(f"out/test_FINAL{TEXT_1}.mp4", loglevel="quiet")
+        .run()
+    )
     # image_1_text = drawText(TEXT_1)
     # image_2_text = drawText(TEXT_2)
 
+    continue
 
     if DEBUG_MODE: 
         image_1_text.save("out/part_1.png")
@@ -159,7 +180,7 @@ for index, row in data.head(20).iterrows():
     (
         ffmpeg
         .concat(video1, video_blank, video2)
-        .output(f'{output_folder}/0_{TEXT_1}.mp4', vcodec='libx264', pix_fmt='yuv420p', movflags='faststart')
+        .output(f'{output_folder}/0_{TEXT_1}.mp4', vcodec='libx264', pix_fmt='yuv420p', movflags='faststart', acodec='copy', copyinkf=None,)
         .overwrite_output()
         .run()
     )
