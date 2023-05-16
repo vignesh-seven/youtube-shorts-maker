@@ -62,7 +62,7 @@ def drawText(input_text, output_file):
     # # out = Image.alpha_composite(background, txt)
     # return out
 
-def cutVideo(input_file, output_file, width, height, start_second, end_second):
+def cut_video(input_file, output_file, width, height, start_second, end_second):
     video_start_time = 2
     probe = ffmpeg.probe(input_file)
     video_info = next(s for s in probe['streams'] if s['codec_type'] == 'video')
@@ -75,8 +75,6 @@ def cutVideo(input_file, output_file, width, height, start_second, end_second):
     crop_y = int(center_y - s_height / 2)
 
     print(f"Duration: {end_second - start_second}")
-    # pad_width = max(width, s_width)
-    # pad_height = max(height, s_height)
 
     out = (
         ffmpeg
@@ -86,10 +84,6 @@ def cutVideo(input_file, output_file, width, height, start_second, end_second):
         .filter('crop', 'ih*9/16', 'ih') # crop to 9:16 aspect ratio
         .filter("scale", f"{width}", f"{height}")
     )
-    # if s_width <= width:
-    #     out.filter('scale', f"{width}", '-1')
-    # if s_height <= height:
-    #     out.filter('scale', "-1", f"{height}")
     (
         out
         
@@ -103,26 +97,11 @@ def cutVideo(input_file, output_file, width, height, start_second, end_second):
     ) 
     return out
 
-# turning them into video
-
-def convertImageToVideo(input, output, duration):
-    return(
-        ffmpeg
-        .input(input, framerate=30)
-        .filter("loop", loop=-1, size=1)
-        .output(output, pix_fmt="yuv420p", vcodec="libx265", movflags="faststart", t=duration)
-        .overwrite_output()
-        .run()
-)
-
 def add_overlay(input_stream, overlay_image_path,  overlay_start_time, overlay_end_time):
-  # Define path to the overlay image
   overlay_image = ffmpeg.input(overlay_image_path, loop=1, framerate=30).trim(start=0, end=1)
 
-  # Create the ffmpeg filter to overlay the image onto the video
   overlay_filter = f'between(t,{overlay_start_time},{overlay_end_time})'
 
-  # Create the ffmpeg command to apply the filter and save the output to a file
   return(
     input_stream
     .overlay(overlay_image, x=0, y=0, enable=overlay_filter)
@@ -131,7 +110,6 @@ def add_overlay(input_stream, overlay_image_path,  overlay_start_time, overlay_e
   )
 
 
-# Iterate over rows
 # for index, row in data.head(len(data)).iterrows():
 for index, row in data.head(3).iterrows():
     TEXT_1 = row['first_part']
@@ -143,25 +121,7 @@ for index, row in data.head(3).iterrows():
 
     os.mkdir(output_temp)
 
-
-
-    
-
-
-    # cutVideo(f"videos/{background}", f"{output_temp}/backgound_blank.mp4", SIZE[0], SIZE[1], 9, 10)
-    # cutVideo(f"videos/{background}", f"{output_temp}/backgound_2.mp4", SIZE[0], SIZE[1], 10, 13)
-
-    # output_final = (
-    #     ffmpeg.concat(
-    #         ffmpeg.input(f"{output_temp}/backgound_1.mp4"),
-    #         ffmpeg.input(f"{output_temp}/backgound_blank.mp4"),
-    #         ffmpeg.input(f"{output_temp}/backgound_2.mp4")
-    #     )
-    #     .output(f"out/test_FINAL{TEXT_1}.mp4", loglevel="quiet")
-    #     .run()
-    # )
-
-    # continue
+    # save text into images
     text_1_image = drawText(TEXT_1, f"{output_temp}/part_1.png")
     text_2_image = drawText(TEXT_2, f"{output_temp}/part_2.png")
 
@@ -171,47 +131,13 @@ for index, row in data.head(3).iterrows():
 
     print(index, background_video, TEXT_1)
 
+    # cut the background video 
+    video_stream = cut_video(f"videos/{background_video}", f"{output_temp}/backgound_video_trimmed.mp4", SIZE[0], SIZE[1], 0, 10)
 
-    video_stream = cutVideo(f"videos/{background_video}", f"{output_temp}/backgound_video_trimmed.mp4", SIZE[0], SIZE[1], 0, 10)
-
-    # video_stream = ffmpeg.input(f"{output_temp}/backgound_video_trimmed.mp4")
-
+    # add overlay images
     video_stream = add_overlay(video_stream, f"{output_temp}/part_1.png", 0.0, 5.0)
     video_stream = add_overlay(video_stream, f"{output_temp}/part_2.png", 6.0, 10.0)
 
+    # render the video
     video_stream.output(f"out/test_output_{index}.mp4", framerate=30).run()
 
-    # overlay_image = ffmpeg.input(f"{output_temp}/part_1.png", loop=1, framerate=30).trim(start=0, end=1)
-
-    # overlay_filter = f'between(t,{overlay_start_time},{overlay_end_time})'
-
-    # video_stream.overlay(overlay_image, x=0, y=0, enable=overlay_filter)
-
-    # video_stream.output(f"out/test_output_{index}.mp4", pix_fmt="yuv420p", vcodec="libx265", movflags="faststart").run()
-
-
-
-    if DEBUG_MODE:
-        continue
-    
-
-    if DONT_MAKE_VIDEO: continue
-
-    convertImageToVideo(f"{output_temp}/part_1.png", f"{output_temp}/video_1.mp4", 8)
-    convertImageToVideo(f"{output_temp}/blank.png", f"{output_temp}/video_blank.mp4", 1)
-    convertImageToVideo(f"{output_temp}/part_2.png", f"{output_temp}/video_2.mp4", 4)
-
-    video1 = ffmpeg.input(f"{output_temp}/video_1.mp4")
-    video_blank = ffmpeg.input(f"{output_temp}/video_blank.mp4")
-    video2 = ffmpeg.input(f"{output_temp}/video_2.mp4")
-    
-    # Do something with the data in the row
-    print(f"{index}: {TEXT_1}, {TEXT_2}")
-
-    (
-        ffmpeg
-        .concat(video1, video_blank, video2)
-        .output(f'{output_folder}/0_{TEXT_1}.mp4', vcodec='libx264', pix_fmt='yuv420p', movflags='faststart', acodec='copy', copyinkf=None,)
-        .overwrite_output()
-        .run()
-    )
