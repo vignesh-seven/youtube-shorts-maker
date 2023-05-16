@@ -2,8 +2,7 @@ from PIL import Image, ImageOps, ImageFont, ImageDraw
 import ffmpeg, io, os, textwrap, shutil
 import pandas as pd
 
-DONT_MAKE_VIDEO = True
-DEBUG_MODE = True
+os.system('cls')
 
 SIZE = (1080, 1920)
 FONT_COLOR = (255, 255, 255)
@@ -26,6 +25,8 @@ TEXT_SEGMENTS = [
         "end": 12
     }
 ]
+
+OUTPUT_FILE_NAME = "quote_video"
 
 # get a font
 FONT = ImageFont.truetype(f"fonts/{FONT}", FONT_SIZE)
@@ -144,17 +145,23 @@ for index, row in data.head(2).iterrows():
             continue
         background_video = sources_list.pop(0)
 
-    print(index, background_video, TEXT_1)
+    print(f"Video No.: {index+1}")
+    print(background_video, TEXT_1)
 
     # cut the background video 
+    print(f"Cutting {background_video}...")
     video_stream = cut_video(f"videos/{background_video}", f"{output_temp}/backgound_video_trimmed.mp4", SIZE[0], SIZE[1], 0, VIDEO_DURATION)
 
     # add overlay images
+    print(f"Adding overlays...")
     video_stream = add_overlay(video_stream, f"{output_temp}/part_1.png", TEXT_SEGMENTS[0]["start"], TEXT_SEGMENTS[0]["end"])
     video_stream = add_overlay(video_stream, f"{output_temp}/part_2.png", TEXT_SEGMENTS[1]["start"], TEXT_SEGMENTS[1]["end"])
     # video_stream = add_overlay(video_stream, f"{output_temp}/part_1.png", 0, 5)
     # video_stream = add_overlay(video_stream, f"{output_temp}/part_2.png", 6, 10)
 
+
     # render the video
-    video_stream.output(f"out/test_output_{index}.mp4", framerate=30).run(overwrite_output=True)
+    print(f"Rendering Video No.: {index+1}...")
+    video_stream.output(f"{output_folder}/{index+1}_{OUTPUT_FILE_NAME}_{index}.mp4", framerate=30, loglevel="quiet").run(overwrite_output=True)
+    print(f"Successfully rendered {OUTPUT_FILE_NAME}_{index+1}.mp4!")
 
