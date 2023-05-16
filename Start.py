@@ -35,7 +35,7 @@ background_interval = (
 
 # print(background_interval)
 
-def drawText(input_text):
+def drawText(input_text, output_file):
 
     # wrap the text
     wrapper = textwrap.TextWrapper(width=15, break_long_words=False)
@@ -57,9 +57,10 @@ def drawText(input_text):
             stroke_fill=STOKE_COLOR
         )
     )
-    out = txt
-    # out = Image.alpha_composite(background, txt)
-    return out
+    txt.save(output_file)
+    # out = txt
+    # # out = Image.alpha_composite(background, txt)
+    # return out
 
 def cutVideo(input_file, output_file, width, height, start_second, end_second):
     video_start_time = 2
@@ -97,13 +98,14 @@ def cutVideo(input_file, output_file, width, height, start_second, end_second):
         # .filter("pad", pad_width, pad_height, "(ow-iw)/2", "(oh-ih)/2")
         .filter("pad", f"{width}", f"{height}", "(ow-iw)/2", "(oh-ih)/2")
         .filter('fps', fps=30, round='up')
-        .output(output_file, pix_fmt="yuv420p", vcodec="libx265", movflags="faststart", loglevel="quiet")
-        .run()
+        # .output(output_file, pix_fmt="yuv420p", vcodec="libx265", movflags="faststart", loglevel="quiet")
+        # .run()
     ) 
+    return out
 
 # turning them into video
 
-def convertToVideo(input, output, duration):
+def convertImageToVideo(input, output, duration):
     return(
         ffmpeg
         .input(input, framerate=30)
@@ -113,62 +115,91 @@ def convertToVideo(input, output, duration):
         .run()
 )
 
+def add_overlay(input_stream, overlay_image_path,  overlay_start_time, overlay_end_time):
+  # Define path to the overlay image
+  overlay_image = ffmpeg.input(overlay_image_path, loop=1, framerate=30).trim(start=0, end=1)
+
+  # Create the ffmpeg filter to overlay the image onto the video
+  overlay_filter = f'between(t,{overlay_start_time},{overlay_end_time})'
+
+  # Create the ffmpeg command to apply the filter and save the output to a file
+  return(
+    input_stream
+    .overlay(overlay_image, x=0, y=0, enable=overlay_filter)
+    # .output(output_file, framerate=30)
+    # .run()
+  )
 
 
 # Iterate over rows
 # for index, row in data.head(len(data)).iterrows():
-for index, row in data.head(2).iterrows():
+for index, row in data.head(3).iterrows():
     TEXT_1 = row['first_part']
     TEXT_2 = row['second_part']
-
-    # Access data in the row
-    if (index % background_interval) == 0:
-        background = sources_list.pop(0)
-
-    # for i in range(len(sources_list)):
-    print(index, background, TEXT_1)
-    # print(index % background_interval)
 
     temp_folder = "temp/"
     output_temp = f"temp/{TEXT_1}"
     output_folder = f"out/"
 
-
-    # os.mkdir(output_folder)
     os.mkdir(output_temp)
 
 
-    cutVideo(f"videos/{background}", f"{output_temp}/backgound_1.mp4", SIZE[0], SIZE[1], 1, 9)
-    cutVideo(f"videos/{background}", f"{output_temp}/backgound_blank.mp4", SIZE[0], SIZE[1], 9, 10)
-    cutVideo(f"videos/{background}", f"{output_temp}/backgound_2.mp4", SIZE[0], SIZE[1], 10, 13)
 
-    output_final = (
-        ffmpeg.concat(
-            ffmpeg.input(f"{output_temp}/backgound_1.mp4"),
-            ffmpeg.input(f"{output_temp}/backgound_blank.mp4"),
-            ffmpeg.input(f"{output_temp}/backgound_2.mp4")
-        )
-        .output(f"out/test_FINAL{TEXT_1}.mp4", loglevel="quiet")
-        .run()
-    )
-    # image_1_text = drawText(TEXT_1)
-    # image_2_text = drawText(TEXT_2)
+    
 
-    continue
 
-    if DEBUG_MODE: 
-        image_1_text.save("out/part_1.png")
+    # cutVideo(f"videos/{background}", f"{output_temp}/backgound_blank.mp4", SIZE[0], SIZE[1], 9, 10)
+    # cutVideo(f"videos/{background}", f"{output_temp}/backgound_2.mp4", SIZE[0], SIZE[1], 10, 13)
+
+    # output_final = (
+    #     ffmpeg.concat(
+    #         ffmpeg.input(f"{output_temp}/backgound_1.mp4"),
+    #         ffmpeg.input(f"{output_temp}/backgound_blank.mp4"),
+    #         ffmpeg.input(f"{output_temp}/backgound_2.mp4")
+    #     )
+    #     .output(f"out/test_FINAL{TEXT_1}.mp4", loglevel="quiet")
+    #     .run()
+    # )
+
+    # continue
+    text_1_image = drawText(TEXT_1, f"{output_temp}/part_1.png")
+    text_2_image = drawText(TEXT_2, f"{output_temp}/part_2.png")
+
+    # get the background video
+    if (index % background_interval) == 0:
+        background_video = sources_list.pop(0)
+
+    print(index, background_video, TEXT_1)
+
+
+    video_stream = cutVideo(f"videos/{background_video}", f"{output_temp}/backgound_video_trimmed.mp4", SIZE[0], SIZE[1], 0, 10)
+
+    # video_stream = ffmpeg.input(f"{output_temp}/backgound_video_trimmed.mp4")
+
+    video_stream = add_overlay(video_stream, f"{output_temp}/part_1.png", 0.0, 5.0)
+    video_stream = add_overlay(video_stream, f"{output_temp}/part_2.png", 6.0, 10.0)
+
+    video_stream.output(f"out/test_output_{index}.mp4", framerate=30).run()
+
+    # overlay_image = ffmpeg.input(f"{output_temp}/part_1.png", loop=1, framerate=30).trim(start=0, end=1)
+
+    # overlay_filter = f'between(t,{overlay_start_time},{overlay_end_time})'
+
+    # video_stream.overlay(overlay_image, x=0, y=0, enable=overlay_filter)
+
+    # video_stream.output(f"out/test_output_{index}.mp4", pix_fmt="yuv420p", vcodec="libx265", movflags="faststart").run()
+
+
+
+    if DEBUG_MODE:
         continue
     
-    image_1_text.save(f"{output_temp}/part_1.png")
-    # background.save(f"{output_temp}/blank.png")
-    image_2_text.save(f"{output_temp}/part_2.png")
 
     if DONT_MAKE_VIDEO: continue
 
-    convertToVideo(f"{output_temp}/part_1.png", f"{output_temp}/video_1.mp4", 8)
-    convertToVideo(f"{output_temp}/blank.png", f"{output_temp}/video_blank.mp4", 1)
-    convertToVideo(f"{output_temp}/part_2.png", f"{output_temp}/video_2.mp4", 4)
+    convertImageToVideo(f"{output_temp}/part_1.png", f"{output_temp}/video_1.mp4", 8)
+    convertImageToVideo(f"{output_temp}/blank.png", f"{output_temp}/video_blank.mp4", 1)
+    convertImageToVideo(f"{output_temp}/part_2.png", f"{output_temp}/video_2.mp4", 4)
 
     video1 = ffmpeg.input(f"{output_temp}/video_1.mp4")
     video_blank = ffmpeg.input(f"{output_temp}/video_blank.mp4")
