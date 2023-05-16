@@ -14,6 +14,19 @@ STOKE_COLOR = (0, 0, 0)
 
 background_interval = 5
 
+VIDEO_DURATION = 12
+
+TEXT_SEGMENTS = [
+    {
+        "start": 0,
+        "end": 8
+    },
+    {
+        "start": 9,
+        "end": 12
+    }
+]
+
 # get a font
 FONT = ImageFont.truetype(f"fonts/{FONT}", FONT_SIZE)
 
@@ -111,7 +124,7 @@ def add_overlay(input_stream, overlay_image_path,  overlay_start_time, overlay_e
 
 
 # for index, row in data.head(len(data)).iterrows():
-for index, row in data.head(3).iterrows():
+for index, row in data.head(2).iterrows():
     TEXT_1 = row['first_part']
     TEXT_2 = row['second_part']
 
@@ -127,17 +140,21 @@ for index, row in data.head(3).iterrows():
 
     # get the background video
     if (index % background_interval) == 0:
+        if len(sources_list) == 1:
+            continue
         background_video = sources_list.pop(0)
 
     print(index, background_video, TEXT_1)
 
     # cut the background video 
-    video_stream = cut_video(f"videos/{background_video}", f"{output_temp}/backgound_video_trimmed.mp4", SIZE[0], SIZE[1], 0, 10)
+    video_stream = cut_video(f"videos/{background_video}", f"{output_temp}/backgound_video_trimmed.mp4", SIZE[0], SIZE[1], 0, VIDEO_DURATION)
 
     # add overlay images
-    video_stream = add_overlay(video_stream, f"{output_temp}/part_1.png", 0.0, 5.0)
-    video_stream = add_overlay(video_stream, f"{output_temp}/part_2.png", 6.0, 10.0)
+    video_stream = add_overlay(video_stream, f"{output_temp}/part_1.png", TEXT_SEGMENTS[0]["start"], TEXT_SEGMENTS[0]["end"])
+    video_stream = add_overlay(video_stream, f"{output_temp}/part_2.png", TEXT_SEGMENTS[1]["start"], TEXT_SEGMENTS[1]["end"])
+    # video_stream = add_overlay(video_stream, f"{output_temp}/part_1.png", 0, 5)
+    # video_stream = add_overlay(video_stream, f"{output_temp}/part_2.png", 6, 10)
 
     # render the video
-    video_stream.output(f"out/test_output_{index}.mp4", framerate=30).run()
+    video_stream.output(f"out/test_output_{index}.mp4", framerate=30).run(overwrite_output=True)
 
