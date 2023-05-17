@@ -8,4 +8,6 @@ Steps:
   - Get the background video
   - Trim the background video to the desired length
   - Overlay text (according to the time intervals)
+  - Get & split audio into segments matching the video duration
+  - Add audio to video
   - Render the video
