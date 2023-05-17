@@ -1,5 +1,5 @@
 from PIL import Image, ImageOps, ImageFont, ImageDraw
-import ffmpeg, io, os, textwrap, shutil
+import ffmpeg, io, os, textwrap, shutil, datetime
 import pandas as pd
 
 os.system('cls')
@@ -41,10 +41,11 @@ os.mkdir("temp/")
 data = pd.read_excel('quotes.xlsx')
 
 # get the sources
-sources_list = os.listdir("videos//")
+video_sources_list = os.listdir("videos//")
+audio_sources_list = os.listdir("audio//")
 
 background_interval = (
-    round(len(data) / len(sources_list))
+    int(len(data) / len(video_sources_list))
 )
 
 # print(background_interval)
@@ -111,6 +112,54 @@ def cut_video(input_file, output_file, width, height, start_second, end_second):
     ) 
     return out
 
+def cut_audio(input_file, start_time):
+    audio_stream = ffmpeg.input(input_file)
+    # audio_duration = ffmpeg.probe("audio/audio_src0.mp3")["format"]["duration"]
+    # print(audio_duration)
+    audio_stream = (
+        audio
+        # .input("audio/audio_src0.mp3")
+        # .trim(start=0,end=VIDEO_DURATION)
+        .output(f"{output_folder}/audio_trimmed.mp3", ss=f"{start_time}", t=f"{VIDEO_DURATION}", acodec="copy", movflags="faststart")
+    )
+    return audio_stream
+
+def get_duration(input_file):
+    return ffmpeg.probe(input_file)["format"]["duration"]
+
+def split_audio_into_streams(input_files):
+    # for index in range(len(input_files)):
+    audio_streams = []
+    for (index, audio_file) in enumerate(input_files):
+        print(audio_file)
+        # continue
+        audio_duration = ffmpeg.probe(f"audio/{audio_file}")["format"]["duration"]
+
+        audio_duration = (int(float(audio_duration)))
+        count = int(int(audio_duration) / VIDEO_DURATION) 
+        for i in range(count):
+            audio_stream = ffmpeg.input(f"audio/{audio_file}")
+            audio_stream = (
+                audio_stream
+                # .input("audio/audio_src0.mp3")
+                # .trim(start=0,end=VIDEO_DURATION)
+                .output(f"{output_folder}/{index}_{i}_{audio_file}_trimmed.mp3", ss=f"{i * VIDEO_DURATION}", t=f"{VIDEO_DURATION}", acodec="copy", movflags="faststart")
+            )
+            audio_streams.append(audio_stream)
+
+            audio_stream.run(overwrite_output=True)
+
+            if len(audio_streams) == len(data):
+                # print(len(audio_streams))
+                return audio_streams
+    if len(audio_streams) < len(data):
+        no_of_videos_lacking_audio = len(data) - len(audio_streams)
+        print("Not enough audio!")
+        print(f"Need audio for {no_of_videos_lacking_audio} more videos (Duration: {str(datetime.timedelta(seconds = no_of_videos_lacking_audio * VIDEO_DURATION))})")
+    return audio_streams
+
+
+
 def add_overlay(input_stream, overlay_image_path,  overlay_start_time, overlay_end_time):
   overlay_image = ffmpeg.input(overlay_image_path, loop=1, framerate=30).trim(start=0, end=1)
 
@@ -125,7 +174,7 @@ def add_overlay(input_stream, overlay_image_path,  overlay_start_time, overlay_e
 
 
 # for index, row in data.head(len(data)).iterrows():
-for index, row in data.head(2).iterrows():
+for index, row in data.head(1).iterrows():
     TEXT_1 = row['first_part']
     TEXT_2 = row['second_part']
 
@@ -135,15 +184,24 @@ for index, row in data.head(2).iterrows():
 
     os.mkdir(output_temp)
 
+    # cut_audio(input_file, start_time)
+    split_audio_into_streams(audio_sources_list)
+
+    continue
+
     # save text into images
     text_1_image = drawText(TEXT_1, f"{output_temp}/part_1.png")
     text_2_image = drawText(TEXT_2, f"{output_temp}/part_2.png")
 
+    # load audio
+    # audio_path = audio_sources_list.pop()
+
+
     # get the background video
     if (index % background_interval) == 0:
-        if len(sources_list) == 1:
+        if len(video_sources_list) == 1:
             continue
-        background_video = sources_list.pop(0)
+        background_video = video_sources_list.pop(0)
 
     print(f"Video No.: {index+1}")
     print(background_video, TEXT_1)
@@ -159,6 +217,8 @@ for index, row in data.head(2).iterrows():
     # video_stream = add_overlay(video_stream, f"{output_temp}/part_1.png", 0, 5)
     # video_stream = add_overlay(video_stream, f"{output_temp}/part_2.png", 6, 10)
 
+    
+    # add audio
 
     # render the video
     print(f"Rendering Video No.: {index+1}...")
