@@ -1,7 +1,12 @@
+.vscode/
 out/
 temp/
 images/
 videos/
 audio/
-.vscode/
+
 ~*
+
+Lib/
+Scripts/
+pyenv.cfg
