@@ -11,11 +11,14 @@ FONT_SIZE = 100
 STROKE_WIDTH = 20
 STOKE_COLOR = (0, 0, 0)
 
-background_interval = 5
+video_repeat_interval = 1
 
 VIDEO_DURATION = 10
 
-VIDEO_COUNT = 3
+# allow using the same video clip for multiple shorts if the input videos aren't long enough
+ALLOW_VIDEO_REPEAT = True
+
+VIDEO_COUNT = 20
 
 TEXT_SEGMENTS = [
     {
@@ -35,7 +38,7 @@ FONT = ImageFont.truetype(f"fonts/{FONT}", FONT_SIZE)
 
 
 
-# print(background_interval)
+# print(video_repeat_interval)
 
 def drawText(input_text, output_file):
 
@@ -76,7 +79,7 @@ def cut_video(input_file, width, height, start_second, end_second):
     crop_x = int(center_x - s_width / 2)
     crop_y = int(center_y - s_height / 2)
 
-    print(f"Duration: {end_second - start_second}")
+    # print(f"Duration: {end_second - start_second}")
 
     out = (
         ffmpeg
@@ -147,6 +150,7 @@ def split_audio_into_files(input_files):
 
 def split_video_into_streams(input_files):
     # for index in range(len(input_files)):
+    print("Here 1")
     video_streams = []
     for (index, video_file) in enumerate(input_files):
         # print(audio_file)
@@ -157,7 +161,7 @@ def split_video_into_streams(input_files):
         video_duration = (int(float(video_duration)))
         count = int(int(video_duration) / VIDEO_DURATION) 
 
-        print(video_duration)
+        # print(video_duration)
 
         for i in range(count):
             video_stream = cut_video(f"videos/{video_file}", SIZE[0], SIZE[1], (i * VIDEO_DURATION), ((i * VIDEO_DURATION) + VIDEO_DURATION))
@@ -167,11 +171,34 @@ def split_video_into_streams(input_files):
             if len(video_streams) == VIDEO_COUNT:
                 # print(len(audio_streams))
                 return video_streams
-    if len(video_streams) < len(data):
-        no_of_videos_lacking_footage = len(data) - len(video_streams)
-        print("Not enough video footage!")
-        print(f"Need more footate for {no_of_videos_lacking_footage} more videos (Duration: {str(datetime.timedelta(seconds = no_of_videos_lacking_footage * VIDEO_DURATION))})")
-    return video_streams
+    print("HERE 2")
+    if ALLOW_VIDEO_REPEAT:
+        video_repeat_interval = (
+            int(VIDEO_COUNT / len(video_streams))
+        )
+
+        repeated_video_streams = []
+
+        for (index, video_stream) in enumerate(video_streams):
+            for i in range(video_repeat_interval):
+                repeated_video_streams.append(video_stream)
+
+        if len(repeated_video_streams) < VIDEO_COUNT:
+            while len(repeated_video_streams) < VIDEO_COUNT:
+                repeated_video_streams.append(video_streams[0])
+        # print(len(video_streams), video_repeat_interval)
+
+        # old_video_streams = video_streams
+
+
+        # while len(video_streams) < VIDEO_COUNT:
+        #     video_streams.append(video_streams[0])
+
+    # if len(video_streams) < len(data):
+    #     no_of_videos_lacking_footage = len(data) - len(video_streams)
+    #     print("Not enough video footage!")
+    #     print(f"Need more footage for {no_of_videos_lacking_footage} more videos (Duration: {str(datetime.timedelta(seconds = no_of_videos_lacking_footage * VIDEO_DURATION))})")
+    return repeated_video_streams
 
 def add_overlay(input_stream, overlay_image_path,  overlay_start_time, overlay_end_time):
   overlay_image = ffmpeg.input(overlay_image_path, loop=1, framerate=30).trim(start=0, end=1)
@@ -211,20 +238,19 @@ data = pd.read_excel('quotes.xlsx')
 video_sources_list = os.listdir("videos//")
 audio_sources_list = os.listdir("audio//")
 
-background_interval = (
-    int(len(data) / len(video_sources_list))
-)
+
 
 # prepare video streams and audio streams
     # split audio into files
-audio_streams = split_audio_into_files(audio_sources_list)
-    # get the newly split audio files
-audio_files_list = os.listdir(f"{temp_folder}//audio//")
+# audio_streams = split_audio_into_files(audio_sources_list)
+#     # get the newly split audio files
+# audio_files_list = os.listdir(f"{temp_folder}//audio//")
 
     # split video into streams
 video_streams = split_video_into_streams(video_sources_list)
 
-print(audio_files_list)
+print(len(video_streams))
+# print(video_streams)
 
 # for (index, i) in enumerate(video_streams):
 #     audio = ffmpeg.input(f"{temp_folder}/audio/{audio_files_list[index]}")
@@ -234,7 +260,7 @@ print(audio_files_list)
 #         .run()
 #     )
 
-# exit()
+exit()
 # for index, row in data.head(len(data)).iterrows():
 for index, row in data.head(len(data)).iterrows():
     TEXT_1 = row['first_part']
@@ -249,7 +275,7 @@ for index, row in data.head(len(data)).iterrows():
     text_2_image = drawText(TEXT_2, f"{output_temp}/part_2.png")
 
     # get the background video
-    # if (index % background_interval) == 0:
+    # if (index % video_repeat_interval) == 0:
     #     if len(video_sources_list) == 1:
     #         continue
     #     background_video = video_sources_list.pop(0)
