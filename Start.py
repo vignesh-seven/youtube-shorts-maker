@@ -13,18 +13,18 @@ STOKE_COLOR = (0, 0, 0)
 
 background_interval = 5
 
-VIDEO_DURATION = 12
+VIDEO_DURATION = 10
 
 VIDEO_COUNT = 3
 
 TEXT_SEGMENTS = [
     {
         "start": 0,
-        "end": 8
+        "end": 7
     },
     {
-        "start": 9,
-        "end": 12
+        "start": 8,
+        "end": 10
     }
 ]
 
@@ -186,11 +186,12 @@ def add_overlay(input_stream, overlay_image_path,  overlay_start_time, overlay_e
   )
 
 def add_audio_and_render(video_stream, audio_file, output_file_name):
-    audio_stream = ffmpeg.input(f"{temp_folder}/audio/{audio_file}")
+    audio_stream = ffmpeg.input(audio_file)
     (
         ffmpeg
-        .output(video_stream, audio_stream, output_file_name, pix_fmt="yuv420p", vcodec="libx265", acodec='aac', movflags="faststart", framerate=30,).run(overwrite_output=True)
-        .run()
+        .output(video_stream, audio_stream, output_file_name, pix_fmt="yuv420p", vcodec="libx265", acodec='aac', movflags="faststart", framerate=30, loglevel="quiet")
+        .run(overwrite_output=True)
+        # .run()
     )
 
 # prep work
@@ -225,17 +226,17 @@ video_streams = split_video_into_streams(video_sources_list)
 
 print(audio_files_list)
 
-for (index, i) in enumerate(video_streams):
-    audio = ffmpeg.input(f"{temp_folder}/audio/{audio_files_list[index]}")
-    (
-        ffmpeg
-        .output(i, audio, f"{output_folder}/{index+1}_video.mp4", pix_fmt="yuv420p", vcodec="libx265", acodec='aac', movflags="faststart", framerate=30,).run(overwrite_output=True)
-        .run()
-    )
+# for (index, i) in enumerate(video_streams):
+#     audio = ffmpeg.input(f"{temp_folder}/audio/{audio_files_list[index]}")
+#     (
+#         ffmpeg
+#         .output(i, audio, f"{output_folder}/{index+1}_video.mp4", pix_fmt="yuv420p", vcodec="libx265", acodec='aac', movflags="faststart", framerate=30,).run(overwrite_output=True)
+#         .run()
+#     )
 
-exit()
+# exit()
 # for index, row in data.head(len(data)).iterrows():
-for index, row in data.head(VIDEO_COUNT).iterrows():
+for index, row in data.head(len(data)).iterrows():
     TEXT_1 = row['first_part']
     TEXT_2 = row['second_part']
 
@@ -243,31 +244,25 @@ for index, row in data.head(VIDEO_COUNT).iterrows():
 
     os.mkdir(output_temp)
 
-
-    # continue
-
     # save text into images
     text_1_image = drawText(TEXT_1, f"{output_temp}/part_1.png")
     text_2_image = drawText(TEXT_2, f"{output_temp}/part_2.png")
 
-    # load audio
-    # audio_path = audio_sources_list.pop()
-
-
     # get the background video
-    if (index % background_interval) == 0:
-        if len(video_sources_list) == 1:
-            continue
-        background_video = video_sources_list.pop(0)
+    # if (index % background_interval) == 0:
+    #     if len(video_sources_list) == 1:
+    #         continue
+    #     background_video = video_sources_list.pop(0)
+    video_stream = video_streams[index]
 
     print(f"Video No.: {index+1}")
-    print(background_video, TEXT_1)
+    print(video_stream, TEXT_1)
 
     # cut the background video 
-    print(f"Cutting {background_video}...")
-    video_stream = cut_video(f"videos/{background_video}", f"{output_temp}/backgound_video_trimmed.mp4", SIZE[0], SIZE[1], 5, 20)
+    # print(f"Cutting {video_stream}...")
+    # video_stream = cut_video(f"videos/{video_stream}", f"{output_temp}/video_trimmed.mp4", SIZE[0], SIZE[1], 5, 20)
 
-    continue
+    # continue
     # add overlay images
     print(f"Adding overlays...")
     video_stream = add_overlay(video_stream, f"{output_temp}/part_1.png", TEXT_SEGMENTS[0]["start"], TEXT_SEGMENTS[0]["end"])
@@ -276,14 +271,15 @@ for index, row in data.head(VIDEO_COUNT).iterrows():
     # video_stream = add_overlay(video_stream, f"{output_temp}/part_2.png", 6, 10)
 
     # choose audio stream
+    audio_file = f"{temp_folder}audio/{audio_files_list[index]}"
     # audio_stream = audio_streams.pop(0)
 
-    print(audio_cur_file)
-    # audio_stream = cut_audio(f"audio/{audio_cur_file}", 0, 10)
+    # render the video
+    print(f"Rendering video ({index+1}/{VIDEO_COUNT})")
+    add_audio_and_render(video_stream, audio_file, f"{output_folder}_{index}_{TEXT_1}_output.mp4")
 
-    audio_stream.output(f"{output_folder}/test_audio_cut.mp3", acodec='aac')
-
-    # add audio & render
+    if (index + 1) == VIDEO_COUNT:
+        break
     # add_audio_and_render(video_stream, audio_stream, f"{index}_{TEXT_1}_output.mp4")
     # render the video
     # print(f"Rendering Video No.: {index+1}...")
