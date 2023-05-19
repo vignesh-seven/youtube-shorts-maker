@@ -242,9 +242,9 @@ audio_sources_list = os.listdir("audio//")
 
 # prepare video streams and audio streams
     # split audio into files
-# audio_streams = split_audio_into_files(audio_sources_list)
+audio_streams = split_audio_into_files(audio_sources_list)
 #     # get the newly split audio files
-# audio_files_list = os.listdir(f"{temp_folder}//audio//")
+audio_files_list = os.listdir(f"{temp_folder}//audio//")
 
     # split video into streams
 video_streams = split_video_into_streams(video_sources_list)
